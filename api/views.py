@@ -12,10 +12,6 @@ class ProductoViewSet(viewsets.ModelViewSet):
     serializer_class = ProductoSerializer
 
     def get_permissions(self):
-        """
-        - Cualquiera puede ver los productos (GET, list, retrieve)
-        - Solo administradores pueden crear, actualizar o eliminar
-        """
         if self.action in ['list', 'retrieve']:
             permission_classes = [permissions.AllowAny]
         else:
@@ -47,9 +43,6 @@ class PedidoViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def obtener_usuario_actual(request):
-    """
-    Devuelve los datos del usuario autenticado, incluyendo su rol.
-    """
     user = request.user
     perfil = getattr(user, 'perfilusuario', None)
     rol = perfil.rol.nombre if perfil and perfil.rol else "Cliente"

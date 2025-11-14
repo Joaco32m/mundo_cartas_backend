@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('api/registration/', include('registration.urls')),
+    path('api/carrito/', include('carrito.urls')),
 ]
 
 if settings.DEBUG:
