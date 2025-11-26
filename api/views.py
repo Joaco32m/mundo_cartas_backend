@@ -1,9 +1,11 @@
 from rest_framework import viewsets, permissions
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .models import Producto, Pedido
-from .serializers import ProductoSerializer, PedidoSerializer
+from carrito.models import Pedido
+from .models import Producto, Categoria
+from .serializers import ProductoSerializer, CategoriaSerializer
+from carrito.serializers import PedidoSerializer
 from registration.permissions import EsVendedor, EsAdmin
 
 
@@ -13,10 +15,17 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            permission_classes = [permissions.AllowAny]
-        else:
-            permission_classes = [EsAdmin]
-        return [permission() for permission in permission_classes]
+            return [AllowAny()]
+        return [EsAdmin()]
+    
+class CategoriaViewSet(viewsets.ModelViewSet):
+    queryset = Categoria.objects.all()
+    serializer_class = CategoriaSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [EsAdmin()]
 
 
 class PedidoViewSet(viewsets.ModelViewSet):

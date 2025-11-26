@@ -1,30 +1,25 @@
 from rest_framework import serializers
-from api.models import Pedido
-from .models import Carrito, ItemCarrito
+from .models import Pedido, Carrito, ItemCarrito, PedidoItem
 from api.serializers import ProductoSerializer
 from api.models import Producto
 
-class ItemCarritoSerializer(serializers.ModelSerializer):
-    producto = serializers.PrimaryKeyRelatedField(queryset=Producto.objects.all())
 
-    producto_detalle = serializers.SerializerMethodField()
+class ItemCarritoSerializer(serializers.ModelSerializer):
+    
+    producto = ProductoSerializer(read_only=True)
+
+    subtotal = serializers.SerializerMethodField()
 
     class Meta:
         model = ItemCarrito
-        fields = ['id', 'producto', 'producto_detalle', 'cantidad','precio_unitario','subtotal']
+        fields = [
+            'id',
+            'producto',
+            'cantidad',
+            'precio_unitario',
+            'subtotal'
+        ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        from api.models import Producto
-        from api.serializers import ProductoSerializer as ProdSer
-        self.fields['producto'].queryset = Producto.objects.all()
-        self._prod_serializer = ProdSer
-
-    def get_producto_detalle(self, obj):
-        return self._prod_serializer(obj.producto).data
-
-    subtotal = serializers.SerializerMethodField()
     def get_subtotal(self, obj):
         return obj.subtotal()
 
@@ -42,8 +37,22 @@ class CarritoSerializer(serializers.ModelSerializer):
         return obj.total()
 
 
+class PedidoItemSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source="producto.nombre")
+    precio = serializers.IntegerField(source="precio_unitario")
+
+    class Meta:
+        model = PedidoItem
+        fields = ["nombre", "cantidad", "precio"]
+
+
 class PedidoSerializer(serializers.ModelSerializer):
+    productos = PedidoItemSerializer(source="items", many=True)
+    vendedor = serializers.CharField(source="vendedor.username")
+
     class Meta:
         model = Pedido
-        fields = ['id', 'usuario', 'fecha', 'total', 'estado']
-        read_only_fields = ['fecha', 'estado']
+        fields = [
+            "id", "cliente", "direccion", "metodo_pago", "estado", "fecha",
+            "productos", "total", "vendedor"
+        ]

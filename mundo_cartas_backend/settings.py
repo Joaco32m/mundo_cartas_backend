@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     'api',
     'registration',
     'carrito',
+    'pagos',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,11 +40,20 @@ MIDDLEWARE = [
 
 
 
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+
 CORS_ALLOW_CREDENTIALS = True
+
+
 CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',
@@ -94,11 +104,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [

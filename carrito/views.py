@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
-from api.models import Pedido
-from .models import Carrito, ItemCarrito
+from .models import Pedido
+from .models import Carrito, ItemCarrito, PedidoItem
 from .serializers import CarritoSerializer, ItemCarritoSerializer, PedidoSerializer
 from api.models import Producto 
 from registration.models import PerfilUsuario
@@ -33,31 +33,75 @@ class AgregarAlCarrito(APIView):
             return Response({"detail": "Perfil no encontrado"}, status=status.HTTP_400_BAD_REQUEST)
 
         producto_id = request.data.get('producto_id')
-        cantidad = int(request.data.get('cantidad', 1))
+        cantidad_raw = request.data.get('cantidad', 1)
 
         if not producto_id:
             return Response({"detail": "producto_id requerido"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validar cantidad
+        try:
+            cantidad = int(cantidad_raw)
+            if cantidad < 1:
+                raise ValueError()
+        except Exception:
+            return Response(
+                {"detail": "La cantidad debe ser un número entero mayor o igual a 1."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         producto = get_object_or_404(Producto, pk=producto_id)
         carrito, _ = Carrito.objects.get_or_create(usuario=perfil)
 
-        item, creado = ItemCarrito.objects.get_or_create(
-            carrito=carrito,
-            producto=producto,
-            defaults={
-                "cantidad": cantidad,
-                "precio_unitario": producto.precio,
-            }
-        )
+        # Asegurar stock como entero
+        try:
+            stock_disponible = int(producto.stock)
+        except:
+            return Response(
+                {"detail": "El stock del producto no es válido. Contacte al administrador."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        if not creado:
+        # Buscar si el producto ya está en el carrito
+        item = ItemCarrito.objects.filter(carrito=carrito, producto=producto).first()
+
+        # Caso 1: El item ya existe
+        if item:
+            # Si por error anterior quedó con una cantidad mayor al stock → lo corregimos
+            if item.cantidad > stock_disponible:
+                item.cantidad = stock_disponible
+                item.save()
+                return Response(
+                    {"detail": f"La cantidad en el carrito era mayor al stock. Se ajustó a {stock_disponible}. Intente nuevamente."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validación: no permitir que la suma total exceda el stock
+            if item.cantidad + cantidad > stock_disponible:
+                return Response(
+                    {"detail": f"Stock insuficiente. Disponible: {stock_disponible}. Ya tienes {item.cantidad} en el carrito."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             item.cantidad += cantidad
             item.save()
 
+        # Caso 2: El item no existe aún
+        else:
+            if cantidad > stock_disponible:
+                return Response(
+                    {"detail": f"Stock insuficiente. Disponible: {stock_disponible}."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            item = ItemCarrito.objects.create(
+                carrito=carrito,
+                producto=producto,
+                cantidad=cantidad,
+                precio_unitario=producto.precio,
+            )
+
         serializer = ItemCarritoSerializer(item)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
 
 
 class ModificarItem(APIView):
@@ -68,8 +112,15 @@ class ModificarItem(APIView):
         item = get_object_or_404(ItemCarrito, id=item_id, carrito__usuario=perfil)
 
         if action == 'increment':
-            item.cantidad += 1
-            item.save()
+            if item.cantidad < item.producto.stock:
+                item.cantidad += 1
+                item.save()
+            else:
+                return Response(
+                    {"detail": "No hay más stock disponible de este producto."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         elif action == 'decrement':
             if item.cantidad > 1:
                 item.cantidad -= 1
@@ -100,11 +151,40 @@ class Checkout(APIView):
         perfil = getattr(request.user, 'perfilusuario', None)
         carrito = get_object_or_404(Carrito, usuario=perfil)
         items = carrito.items.all()
+
         if not items.exists():
             return Response({"detail": "Carrito vacío"}, status=status.HTTP_400_BAD_REQUEST)
 
-        total = carrito.total()
-        pedido = Pedido.objects.create(usuario=perfil, total=total, estado='CONF')
+        metodo_pago = request.data.get("metodo_pago", "Desconocido")
+        direccion = request.data.get("direccion", "")
+        cliente_nombre = perfil.user.username
+
+        # IMPORTANTE: Asumimos que todos los productos del carrito pertenecen al mismo vendedor
+        vendedor = items.first().producto.vendedor
+
+        # Creamos el pedido
+        pedido = Pedido.objects.create(
+            vendedor=vendedor,
+            cliente=cliente_nombre,
+            total=carrito.total(),
+            metodo_pago=metodo_pago,
+            estado="Pendiente",
+        )
+
+        # Crear los items del pedido
+        for item in items:
+            PedidoItem.objects.create(
+                pedido=pedido,
+                producto=item.producto,
+                cantidad=item.cantidad,
+                precio_unitario=item.precio_unitario,
+            )
+
+            # Descontar stock
+            item.producto.stock -= item.cantidad
+            item.producto.save()
+
+        # Vaciar carrito
         items.delete()
-        serializer = PedidoSerializer(pedido)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
