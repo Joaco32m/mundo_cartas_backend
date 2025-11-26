@@ -2,17 +2,23 @@ from rest_framework import serializers
 from .models import Producto,Categoria
 
 class ProductoSerializer(serializers.ModelSerializer):
-    imagen = serializers.SerializerMethodField()
+    imagen_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Producto
-        fields = "__all__"
+        fields = ["id", "nombre", "descripcion", "precio", "categoria", "stock", "imagen", "imagen_url"]
 
-    def get_imagen(self, obj):
+    def get_imagen_url(self, obj):
+        request = self.context.get("request")
+
         if obj.imagen:
-            return obj.imagen.url
+            if request:
+                return request.build_absolute_uri(obj.imagen.url)
+            return obj.imagen.url  # fallback sin request
+
         return None
-    
+
+
     
 class CategoriaSerializer(serializers.ModelSerializer):
     

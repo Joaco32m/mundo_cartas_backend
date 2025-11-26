@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/registration/', include('registration.urls')),
     path("api/pagos/", include("pagos.urls")),
     path('api/carrito/', include('carrito.urls')),
+    path("vendedor/", include("vendedor.urls")),
 ]
 
 if settings.DEBUG:

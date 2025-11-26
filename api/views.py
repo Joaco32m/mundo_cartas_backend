@@ -18,6 +18,24 @@ class ProductoViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [EsAdmin()]
     
+    def get_serializer_context(self):
+        return {"request": self.request}
+    
+    
+    def get_queryset(self):
+        qs = Producto.objects.all()
+
+        nombre = self.request.query_params.get("nombre")
+        categoria = self.request.query_params.get("categoria")
+
+        if nombre:
+            qs = qs.filter(nombre__icontains=nombre)
+
+        if categoria:
+            qs = qs.filter(categoria__iexact=categoria)
+
+        return qs
+    
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
@@ -37,10 +55,7 @@ class PedidoViewSet(viewsets.ModelViewSet):
         user = self.request.user
         perfil = getattr(user, 'perfilusuario', None)
 
-        if perfil and perfil.rol.nombre == "Vendedor":
-            return Pedido.objects.filter(vendedor=user).order_by('-fecha')
-
-        elif perfil and perfil.rol.nombre == "Administrador":
+        if perfil and perfil.rol.nombre in ["Vendedor", "Administrador"]:
             return Pedido.objects.all().order_by('-fecha')
 
         return Pedido.objects.none()
