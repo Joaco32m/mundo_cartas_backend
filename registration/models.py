@@ -19,8 +19,7 @@ def rol_default():
 class PerfilUsuario(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     rol = models.ForeignKey(Rol, on_delete=models.RESTRICT, default=rol_default)
-
-    rut = models.CharField(max_length=20, blank=True, null=True)
+    rut = models.CharField(max_length=20, unique=True, blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
@@ -29,5 +28,12 @@ class PerfilUsuario(models.Model):
 
 @receiver(post_save, sender=User)
 def crear_perfil_usuario(sender, instance, created, **kwargs):
-    if created:
-        PerfilUsuario.objects.get_or_create(user=instance, rol_id=rol_default())
+    if not created:
+        return
+    if hasattr(instance, "_crear_como_empleado"):
+        return
+
+    PerfilUsuario.objects.get_or_create(
+        user=instance,
+        defaults={"rol_id": rol_default()}
+    )

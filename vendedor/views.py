@@ -1,50 +1,17 @@
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics, permissions
 from rest_framework.response import Response
+from .serializers import RegistrarVentaFisicaSerializer, VentaFisicaSerializer
 
-from carrito.models import Pedido
+class RegistrarVentaFisicaView(generics.CreateAPIView):
+    serializer_class = RegistrarVentaFisicaSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def resumen_vendedor(request):
+        venta = serializer.save()
 
-    pedidos = Pedido.objects.all()
+        respuesta = VentaFisicaSerializer(venta).data  
 
-    total_ventas = pedidos.count()
-    ingresos_total = sum([p.total for p in pedidos])
-
-    data = {
-        "totalVentas": total_ventas,
-        "ingresos": ingresos_total,
-    }
-
-    return Response(data)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def pedidos_vendedor(request):
-
-    pedidos = Pedido.objects.all().order_by('-fecha')
-
-    serialized = []
-    for p in pedidos:
-        serialized.append({
-            "id": p.id,
-            "cliente": p.cliente,
-            "total": p.total,
-            "estado": p.estado,
-            "metodo_pago": p.metodo_pago,
-            "fecha": p.fecha,
-            "productos": [
-                {
-                    "nombre": prod.nombre,
-                    "precio": prod.precio,
-                    "cantidad": 1  #
-                }
-                for prod in p.productos.all()
-            ]
-        })
-
-    return Response(serialized)
+        return Response(respuesta, status=201)

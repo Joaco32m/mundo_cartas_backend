@@ -1,7 +1,6 @@
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -103,17 +102,14 @@ def confirmar_pago(request):
         trans.estado = "AUTORIZADA"
         pedido.estado = "Pagado"
 
-        carrito = pedido.vendedor.perfilusuario.carrito  # Obtener carrito del usuario
+        carrito = pedido.vendedor.perfilusuario.carrito
 
         for producto in pedido.productos.all():
 
-            # Buscar el item que corresponde a este producto
             item = carrito.items.get(producto=producto)
 
-            # Restar stock correctamente
             producto.stock -= item.cantidad
 
-            # Evitar valores negativos
             if producto.stock < 0:
                 producto.stock = 0
 
@@ -122,7 +118,6 @@ def confirmar_pago(request):
         pedido.save()
         trans.save()
 
-        # Vaciar carrito
         carrito.items.all().delete()
 
         return redirect("http://localhost:3000/pago-exitoso")

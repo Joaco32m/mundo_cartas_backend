@@ -1,7 +1,6 @@
 from django.urls import path
-from .views import resumen_vendedor, pedidos_vendedor
+from .views import RegistrarVentaFisicaView
 
 urlpatterns = [
-    path("resumen/", resumen_vendedor),
-    path("pedidos/", pedidos_vendedor),
+    path("registrar-venta/", RegistrarVentaFisicaView.as_view(), name="registrar-venta-fisica"),
 ]

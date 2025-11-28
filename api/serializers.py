@@ -14,7 +14,7 @@ class ProductoSerializer(serializers.ModelSerializer):
         if obj.imagen:
             if request:
                 return request.build_absolute_uri(obj.imagen.url)
-            return obj.imagen.url  # fallback sin request
+            return obj.imagen.url
 
         return None
 

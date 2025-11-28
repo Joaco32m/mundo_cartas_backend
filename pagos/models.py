@@ -1,7 +1,7 @@
 from django.db import models
 from carrito.models import Pedido
 from django.utils import timezone
-# Create your models here.
+
 
 
 class TransaccionWebpay(models.Model):

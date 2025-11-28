@@ -3,11 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-
 from .models import Pedido, Carrito, ItemCarrito, PedidoItem
 from .serializers import CarritoSerializer, ItemCarritoSerializer, PedidoSerializer
 from api.models import Producto
 from registration.models import PerfilUsuario
+from reportes.models import Venta
 
 
 def get_or_create_perfil(user):
@@ -59,8 +59,6 @@ class AgregarAlCarrito(APIView):
                     {"ok": False, "detail": "Stock máximo alcanzado"},
                     status=400
                 )
-
-            # SI SE PUEDE AGREGAR
             if item.cantidad + cantidad > stock_disponible:
                 return Response(
                     {"ok": False, "detail": f"Solo quedan {stock_disponible - item.cantidad} disponibles"},
@@ -72,7 +70,6 @@ class AgregarAlCarrito(APIView):
 
             return Response({"ok": True, "item": ItemCarritoSerializer(item).data}, status=200)
 
-        # SI NO EXISTE EL ITEM AÚN
         if cantidad > stock_disponible:
             return Response(
                 {"ok": False, "detail": f"Solo {stock_disponible} disponibles"},
@@ -87,7 +84,6 @@ class AgregarAlCarrito(APIView):
         )
 
         return Response({"ok": True, "item": ItemCarritoSerializer(item).data}, status=201)
-
 
 
 class ModificarItem(APIView):
@@ -169,6 +165,13 @@ class CheckoutCliente(APIView):
             item.producto.stock -= item.cantidad
             item.producto.save()
 
+        Venta.objects.create(
+            usuario=perfil.user,
+            fecha=pedido.fecha,
+            total=carrito.total(),
+            metodo_pago="Webpay"
+        )
+
         items.delete()
 
         return Response(PedidoSerializer(pedido).data, status=201)
@@ -215,5 +218,12 @@ class CheckoutVendedor(APIView):
 
         pedido.total = total
         pedido.save()
+
+        Venta.objects.create(
+            usuario=vendedor,
+            total=total,
+            metodo_pago=metodo_pago,
+            fecha=pedido.fecha
+        )
 
         return Response(PedidoSerializer(pedido).data, status=201)
